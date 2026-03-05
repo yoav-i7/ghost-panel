@@ -20,13 +20,9 @@ sudo apt install g++ make libx11-dev xdotool x11-utils
 
 ## Installation
 1. Clone or download this repository.
-2. Compile the C++ engine:
+2. Compile and install the binary and the scripts to ~/.local/bin:
    ```bash
-   make
-   ```
-3. (Optional) Install the binary to ~/.local/bin:
-   ```bash
-   make install
+   make && make install
    ```
 
 ## Usage

@@ -19,6 +19,10 @@ $(TARGET): $(SRCS)
 install: $(TARGET)
 	mkdir -p $(INSTALL_DIR)
 	cp $(TARGET) $(INSTALL_DIR)/
+	cp start-ghost-panel.sh $(INSTALL_DIR)/
+	cp toggle-ghost-panel.sh $(INSTALL_DIR)/
+	chmod +x $(INSTALL_DIR)/start-ghost-panel.sh
+	chmod +x $(INSTALL_DIR)/toggle-ghost-panel.sh
 	@echo "Successfully installed to $(INSTALL_DIR)/$(TARGET)"
 
 # Rule to clean up the compiled files

@@ -1,7 +1,11 @@
 #!/bin/bash
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
-BINARY_PATH="$SCRIPT_DIR/ghost-panel"
+BINARY="ghost-panel"
+
+# Dependency checks
+command -v xdotool >/dev/null 2>&1 || { echo >&2 "Error: xdotool is required but not installed. Aborting."; exit 1; }
+command -v xwininfo >/dev/null 2>&1 || { echo >&2 "Error: x11-utils (xwininfo) is required but not installed. Aborting."; exit 1; }
 
 get_top_panel_id() {
     for id in $(xdotool search --class "xfce4-panel" 2>/dev/null); do
@@ -23,7 +27,7 @@ while true; do
     if [[ -n "$PANEL_ID" ]]; then
         echo "Found Panel ID: $PANEL_ID. Starting engine..."
         # Run the binary and WAIT for it to exit
-        "$BINARY_PATH" "$PANEL_ID"
+        "$BINARY" "$PANEL_ID"
         echo "Engine stopped. Re-searching in 2 seconds..."
     else
         echo "Could not find panel. Retrying..."

@@ -16,6 +16,15 @@ const std::string PANEL_PROP = "/panels/panel-1/autohide-behavior";
 
 Window panelWin = None;
 
+Atom net_active_window;
+Atom net_wm_state;
+Atom state_max_v;
+Atom net_wm_window_type;
+Atom type_menu;
+Atom type_dropdown;
+Atom type_popup;
+Atom type_tooltip;
+
 // --- X11 ERROR HANDLER ---
 int myErrorHandler(Display *display, XErrorEvent *error) {
     (void)display;
@@ -82,7 +91,6 @@ Window getActiveWindow(Display* display, Window root) {
     int actual_format;
     unsigned long nitems, bytes_after;
     unsigned char* prop = NULL;
-    Atom net_active_window = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
 
     if (XGetWindowProperty(display, root, net_active_window, 0, 1, False, AnyPropertyType,
                            &actual_type, &actual_format, &nitems, &bytes_after, &prop) == Success && prop != NULL) {
@@ -101,8 +109,6 @@ bool isMaximized(Display* display, Window win) {
     int actual_format;
     unsigned long nitems, bytes_after;
     unsigned char* prop = NULL;
-    Atom net_wm_state = XInternAtom(display, "_NET_WM_STATE", False);
-    Atom state_max_v = XInternAtom(display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
 
     bool maximized = false;
     if (XGetWindowProperty(display, win, net_wm_state, 0, 1024, False, XA_ATOM,
@@ -126,16 +132,7 @@ bool isMenuOrTooltip(Display* display, Window win, Window panelWin) {
 
     // 1. Override Redirect (Fastest catch for 95% of tooltips and popups)
     XWindowAttributes attrs;
-    if (XGetWindowAttributes(display, win, &attrs) && attrs.override_redirect) {
-        return true;
-    }
-
-    // 2. EWMH Window Type check (For GTK menus and standard drop-downs)
-    static Atom net_wm_window_type = XInternAtom(display, "_NET_WM_WINDOW_TYPE", False);
-    static Atom type_menu = XInternAtom(display, "_NET_WM_WINDOW_TYPE_MENU", False);
-    static Atom type_dropdown = XInternAtom(display, "_NET_WM_WINDOW_TYPE_DROPDOWN_MENU", False);
-    static Atom type_popup = XInternAtom(display, "_NET_WM_WINDOW_TYPE_POPUP_MENU", False);
-    static Atom type_tooltip = XInternAtom(display, "_NET_WM_WINDOW_TYPE_TOOLTIP", False);
+    if (XGetWindowAttributes(display, win, &attrs) && attrs.override_redirect) return true;
 
     Atom actual_type;
     int actual_format;
@@ -189,6 +186,16 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    net_active_window = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
+    net_wm_state = XInternAtom(display, "_NET_WM_STATE", False);
+    state_max_v = XInternAtom(display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
+    
+    net_wm_window_type = XInternAtom(display, "_NET_WM_WINDOW_TYPE", False);
+    type_menu = XInternAtom(display, "_NET_WM_WINDOW_TYPE_MENU", False);
+    type_dropdown = XInternAtom(display, "_NET_WM_WINDOW_TYPE_DROPDOWN_MENU", False);
+    type_popup = XInternAtom(display, "_NET_WM_WINDOW_TYPE_POPUP_MENU", False);
+    type_tooltip = XInternAtom(display, "_NET_WM_WINDOW_TYPE_TOOLTIP", False);
+
     XSetErrorHandler(myErrorHandler);
     Window root = DefaultRootWindow(display);
     XSelectInput(display, root, PropertyChangeMask);
@@ -206,10 +213,12 @@ int main(int argc, char* argv[]) {
     while (true) {
         if (!maxState) {
             XNextEvent(display, &event);
+            // Filter: We only care if a property changed
+            if (event.type != PropertyNotify) continue; 
+            // Filter: We only care if the active window changed or a window's state changed
+            if (event.xproperty.atom != net_active_window && event.xproperty.atom != net_wm_state) continue; 
             Window active = getActiveWindow(display, root);
-            if (active != lastNormalWin && isNormalWindow(display, active, panelWin)) {
-                    lastNormalWin = active;
-            }
+            if (active != lastNormalWin && isNormalWindow(display, active, panelWin)) lastNormalWin = active;
             if (isMaximized(display, lastNormalWin)) {
                 maxState = true;
                 if (panelVisible) {
@@ -221,13 +230,9 @@ int main(int argc, char* argv[]) {
                 counter = DEBOUNCE_LIMIT;
             }
         } else {
-            while (XPending(display) > 0) {
-                XNextEvent(display, &event);
-            }
+            while (XPending(display) > 0) XNextEvent(display, &event);
             Window active = getActiveWindow(display, root);
-            if (active != lastNormalWin && isNormalWindow(display, active, panelWin)) {
-                    lastNormalWin = active;
-            }
+            if (active != lastNormalWin && isNormalWindow(display, active, panelWin)) lastNormalWin = active;
             if (!isMaximized(display, lastNormalWin)) {
                 maxState = false;
                 if (!panelVisible) {
