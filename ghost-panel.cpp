@@ -58,7 +58,7 @@ bool isNormalWindow(Display* display, Window win, Window panelWin) {
         }
     }
     return true;
-}		
+}
 
 // Helper to run the D-Bus command asynchronously
 void runXfconf(const std::string& val) {
@@ -79,7 +79,7 @@ void runXfconf(const std::string& val) {
 
         freopen("/dev/null", "w", stderr);
         execvp(args[0], const_cast<char* const*>(args));
-        exit(1); 
+        exit(1);
     }
     // --- PARENT PROCESS ---
     // Returns immediately without waitpid()
@@ -134,6 +134,7 @@ bool isMenuOrTooltip(Display* display, Window win, Window panelWin) {
     XWindowAttributes attrs;
     if (XGetWindowAttributes(display, win, &attrs) && attrs.override_redirect) return true;
 
+    // 2. EWMH Window Type check (For GTK menus and standard drop-downs)
     Atom actual_type;
     int actual_format;
     unsigned long nitems, bytes_after;
