@@ -11,7 +11,7 @@
 #include <signal.h>
 
 const int THRESHOLD = 32;
-const int DEBOUNCE_LIMIT = 6;
+const int DEBOUNCE_LIMIT = 10;
 const std::string PANEL_PROP = "/panels/panel-1/autohide-behavior";
 
 Window panelWin = None;
@@ -32,10 +32,10 @@ int myErrorHandler(Display *display, XErrorEvent *error) {
         // If the window that died was specifically our top panel...
         if (error->resourceid == panelWin) {
             std::cerr << "FATAL: Panel window lost. Exiting for restart..." << std::endl;
-            exit(1); 
+            exit(1);
         }
         // Otherwise, it was just a normal app closing (like a browser).
-        return 0; 
+        return 0;
     }
     return 0;
 }
@@ -190,7 +190,7 @@ int main(int argc, char* argv[]) {
     net_active_window = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
     net_wm_state = XInternAtom(display, "_NET_WM_STATE", False);
     state_max_v = XInternAtom(display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
-    
+
     net_wm_window_type = XInternAtom(display, "_NET_WM_WINDOW_TYPE", False);
     type_menu = XInternAtom(display, "_NET_WM_WINDOW_TYPE_MENU", False);
     type_dropdown = XInternAtom(display, "_NET_WM_WINDOW_TYPE_DROPDOWN_MENU", False);
@@ -201,14 +201,18 @@ int main(int argc, char* argv[]) {
     Window root = DefaultRootWindow(display);
     XSelectInput(display, root, PropertyChangeMask);
 
+    std::cout << "Ghost Panel Started for Panel ID: " << panelWin << "\n";
+
+    Window lastNormalWin = getActiveWindow(display, root);
+    if (lastNormalWin != None && isNormalWindow(display, lastNormalWin, panelWin)) {
+        XSelectInput(display, lastNormalWin, PropertyChangeMask);
+    }
+
     bool maxState = false;
     bool panelVisible = true;
     int counter = 0;
-
-    std::cout << "Ghost Panel Started for Panel ID: " << panelWin << "\n";
-    Window lastNormalWin = None;
     Window lastHoveredWin = None;
-    	bool isCurrentlyMenu = false;
+    bool isCurrentlyMenu = false;
 
     XEvent event;
     while (true) {
@@ -219,12 +223,15 @@ int main(int argc, char* argv[]) {
             // Filter: We only care if the active window changed or a window's state changed
             if (event.xproperty.atom != net_active_window && event.xproperty.atom != net_wm_state) continue; 
             Window active = getActiveWindow(display, root);
-            if (active != lastNormalWin && isNormalWindow(display, active, panelWin)) lastNormalWin = active;
+            if (active != lastNormalWin && isNormalWindow(display, active, panelWin)) {
+                lastNormalWin = active;
+                XSelectInput(display, lastNormalWin, PropertyChangeMask);
+            }
             if (isMaximized(display, lastNormalWin)) {
                 maxState = true;
                 if (panelVisible) {
                     XUnmapWindow(display, panelWin);
-                    XFlush(display); // Force X server to update immediately
+                    XFlush(display);
                     runXfconf("0");
                     panelVisible = false;
                 }
@@ -233,7 +240,10 @@ int main(int argc, char* argv[]) {
         } else {
             while (XPending(display) > 0) XNextEvent(display, &event);
             Window active = getActiveWindow(display, root);
-            if (active != lastNormalWin && isNormalWindow(display, active, panelWin)) lastNormalWin = active;
+            if (active != lastNormalWin && isNormalWindow(display, active, panelWin)) {
+                lastNormalWin = active;
+                XSelectInput(display, lastNormalWin, PropertyChangeMask);
+            }
             if (!isMaximized(display, lastNormalWin)) {
                 maxState = false;
                 if (!panelVisible) {
