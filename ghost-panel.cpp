@@ -10,9 +10,7 @@
 #include <algorithm>
 #include <signal.h>
 
-const int THRESHOLD = 32;
 const int DEBOUNCE_LIMIT = 10;
-const std::string PANEL_PROP = "/panels/panel-1/autohide-behavior";
 
 Window panelWin = None;
 
@@ -61,7 +59,7 @@ bool isNormalWindow(Display* display, Window win, Window panelWin) {
 }
 
 // Helper to run the D-Bus command asynchronously
-void runXfconf(const std::string& val) {
+void runXfconf(const std::string& val, const std::string& propPath) {
     pid_t pid = fork();
 
     if (pid == -1) {
@@ -72,7 +70,7 @@ void runXfconf(const std::string& val) {
         const char* args[] = {
             "xfconf-query",
             "-c", "xfce4-panel",
-            "-p", "/panels/panel-1/autohide-behavior",
+            "-p", propPath.c_str(),
             "-s", val.c_str(),
             NULL
         };
@@ -173,13 +171,15 @@ bool isMenuOrTooltip(Display* display, Window win, Window panelWin) {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <PANEL_ID>\n";
+    if (argc < 4) {
+    std::cerr << "Usage: " << argv[0] << " <PANEL_WINDOW_ID> <PANEL_NUMBER> <PANEL_SIZE>\n";
         return 1;
     }
 
     signal(SIGCHLD, SIG_IGN); // Ignore child processes to prevent zombies when using fork
     panelWin = std::stoul(argv[1]); // Convert string ID to X11 Window type
+    std::string PANEL_PROP = std::string("/panels/panel-") + argv[2] + "/autohide-behavior";
+    int THRESHOLD = std::stoi(argv[3]);
 
     Display* display = XOpenDisplay(NULL);
     if (!display) {
@@ -203,51 +203,65 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Ghost Panel Started for Panel ID: " << panelWin << "\n";
 
-    Window lastNormalWin = getActiveWindow(display, root);
-    if (lastNormalWin != None && isNormalWindow(display, lastNormalWin, panelWin)) {
-        XSelectInput(display, lastNormalWin, PropertyChangeMask);
+    Window currentActiveWin = getActiveWindow(display, root);
+    if (currentActiveWin != None && isNormalWindow(display, currentActiveWin, panelWin)) {
+        XSelectInput(display, currentActiveWin, PropertyChangeMask);
     }
 
-    bool maxState = false;
     bool panelVisible = true;
     int counter = 0;
     Window lastHoveredWin = None;
     bool isCurrentlyMenu = false;
+    bool currentIsNormal = false;
+    if (currentActiveWin != None) {
+        currentIsNormal = isNormalWindow(display, currentActiveWin, panelWin);
+    }
+    bool maxState = (currentIsNormal && isMaximized(display, currentActiveWin));
 
     XEvent event;
     while (true) {
         if (!maxState) {
             XNextEvent(display, &event);
-            // Filter: We only care if a property changed
-            if (event.type != PropertyNotify) continue; 
-            // Filter: We only care if the active window changed or a window's state changed
-            if (event.xproperty.atom != net_active_window && event.xproperty.atom != net_wm_state) continue; 
-            Window active = getActiveWindow(display, root);
-            if (active != lastNormalWin && isNormalWindow(display, active, panelWin)) {
-                lastNormalWin = active;
-                XSelectInput(display, lastNormalWin, PropertyChangeMask);
+            // Filter: We only care if a property changed and (the active window changed or a window's state changed)
+            if (event.type != PropertyNotify || 
+               (event.xproperty.atom != net_active_window && event.xproperty.atom != net_wm_state)) {
+                continue; 
             }
-            if (isMaximized(display, lastNormalWin)) {
+            Window active = getActiveWindow(display, root);
+            if (active != currentActiveWin) {
+                currentActiveWin = active;
+                currentIsNormal = isNormalWindow(display, currentActiveWin, panelWin);
+                if (currentIsNormal) XSelectInput(display, currentActiveWin, PropertyChangeMask);
+            }
+            if (currentIsNormal && isMaximized(display, currentActiveWin)) {
                 maxState = true;
                 if (panelVisible) {
                     XUnmapWindow(display, panelWin);
                     XFlush(display);
-                    runXfconf("0");
+                    runXfconf("0", PANEL_PROP);
                     panelVisible = false;
                 }
                 counter = DEBOUNCE_LIMIT;
             }
         } else {
-            while (XPending(display) > 0) XNextEvent(display, &event);
-            Window active = getActiveWindow(display, root);
-            if (active != lastNormalWin && isNormalWindow(display, active, panelWin)) {
-                lastNormalWin = active;
-                XSelectInput(display, lastNormalWin, PropertyChangeMask);
+            while (XPending(display) > 0) {
+                XNextEvent(display, &event);
+                if (event.type == PropertyNotify && 
+                   (event.xproperty.atom == net_active_window || event.xproperty.atom == net_wm_state)) {
+                    Window active = getActiveWindow(display, root);
+                    if (active != currentActiveWin) {
+                        currentActiveWin = active;
+                        currentIsNormal = isNormalWindow(display, currentActiveWin, panelWin);
+
+                        if (currentIsNormal) XSelectInput(display, currentActiveWin, PropertyChangeMask);
+                    }
+                }
             }
-            if (!isMaximized(display, lastNormalWin)) {
+
+            if (!currentIsNormal || !isMaximized(display, currentActiveWin)) {
                 maxState = false;
                 if (!panelVisible) {
-                    runXfconf("1");
+                    runXfconf("1", PANEL_PROP);
                     XMapWindow(display, panelWin);
                     XFlush(display);
                     panelVisible = true;
@@ -263,7 +277,6 @@ int main(int argc, char* argv[]) {
 
             if (child_ret != lastHoveredWin) {
                 lastHoveredWin = child_ret;
-                // Only run the heavy function once per window!
                 isCurrentlyMenu = isMenuOrTooltip(display, child_ret, panelWin); 
             }
 
