@@ -42,7 +42,7 @@ Add `start-ghost-panel.sh` to your XFCE 'Session and Startup' > 'Application Aut
 If you want to temporarily disable the autohide behavior and lock the panel open, run `toggle-ghost-panel.sh`.
 
 ## Recommended Configuraion
-Because this tool rapidly modifies X11 window properties, you might see screen tearing when the panel toggles if your.
+Because this tool rapidly modifies X11 window properties, you might see screen tearing when the panel toggles.
 * I highly recommend using **Picom** instead of XFCE's default `xfwm4` compositor.
 * In your `picom.conf`, ensure `vsync = true`, `use-damage = false` and `xrender-sync-fence = true` are set.
 * I also recommend to enable slide-in animations for the panel and geometry-change animations for all normal windows in picom, to make the panel slide in smoothly instead of appearing and disappearing.
