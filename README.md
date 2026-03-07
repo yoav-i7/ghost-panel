@@ -1,6 +1,6 @@
 # Ghost Panel 👻
 
-A lightweight C++ tool and bash wrapper to fix XFCE's panel autohide behavior. 
+A lightweight C++ tool and bash wrapper to change XFCE's panel autohide behavior. 
 
 By default, an autohiding XFCE panel will simply overlap your maximized windows when it unhides. My program forces the panel to dynamically resize your maximized windows to make room for the panel when it appears, and expand them back when it hides.
 

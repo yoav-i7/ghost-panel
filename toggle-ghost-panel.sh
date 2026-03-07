@@ -3,10 +3,10 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 
 # Load shared configuration
-if [[ -f "$SCRIPT_DIR/config.cfg" ]]; then
-    source "$SCRIPT_DIR/config.cfg"
+if [[ -f "$SCRIPT_DIR/gpanel.cfg" ]]; then
+    source "$SCRIPT_DIR/gpanel.cfg"
 else
-    echo "Error: config.cfg not found in $SCRIPT_DIR"
+    echo "Error: gpanel.cfg not found in $SCRIPT_DIR"
     exit 1
 fi
 
