@@ -37,7 +37,7 @@ while true; do
     if [[ -n "$PANEL_ID" ]]; then
         echo "Found Panel ID: $PANEL_ID. Starting engine..."
         # Run the binary and wait for it to exit
-        "$BINARY" "$PANEL_ID" "$PANEL_NUMBER" "$PANEL_HEIGHT"
+        "$BINARY" "$PANEL_ID" "$PANEL_HEIGHT"
         echo "Engine stopped. Re-searching in 2 seconds..."
     else
         echo "Could not find panel. Retrying..."

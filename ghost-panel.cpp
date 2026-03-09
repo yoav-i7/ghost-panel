@@ -8,9 +8,8 @@
 #include <string>
 #include <vector>
 #include <algorithm>
-#include <signal.h>
 
-const int DEBOUNCE_LIMIT = 10;
+const int DEBOUNCE_LIMIT = 8;
 
 Window panelWin = None;
 
@@ -56,31 +55,6 @@ bool isNormalWindow(Display* display, Window win, Window panelWin) {
         }
     }
     return true;
-}
-
-// Helper to run the D-Bus command asynchronously
-void runXfconf(const std::string& val, const std::string& propPath) {
-    pid_t pid = fork();
-
-    if (pid == -1) {
-        std::cerr << "Failed to fork process for xfconf-query\n";
-        return;
-    } else if (pid == 0) {
-        // --- CHILD PROCESS ---
-        const char* args[] = {
-            "xfconf-query",
-            "-c", "xfce4-panel",
-            "-p", propPath.c_str(),
-            "-s", val.c_str(),
-            NULL
-        };
-
-        freopen("/dev/null", "w", stderr);
-        execvp(args[0], const_cast<char* const*>(args));
-        exit(1);
-    }
-    // --- PARENT PROCESS ---
-    // Returns immediately without waitpid()
 }
 
 // Gets the currently active window ID
@@ -171,15 +145,13 @@ bool isMenuOrTooltip(Display* display, Window win, Window panelWin) {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc < 4) {
-    std::cerr << "Usage: " << argv[0] << " <PANEL_WINDOW_ID> <PANEL_NUMBER> <PANEL_SIZE>\n";
+    if (argc < 3) {
+    std::cerr << "Usage: " << argv[0] << " <PANEL_WINDOW_ID> <PANEL_SIZE>\n";
         return 1;
     }
 
-    signal(SIGCHLD, SIG_IGN); // Ignore child processes to prevent zombies when using fork
     panelWin = std::stoul(argv[1]); // Convert string ID to X11 Window type
-    std::string PANEL_PROP = std::string("/panels/panel-") + argv[2] + "/autohide-behavior";
-    int THRESHOLD = std::stoi(argv[3]);
+    int THRESHOLD = std::stoi(argv[2]);
 
     Display* display = XOpenDisplay(NULL);
     if (!display) {
@@ -200,23 +172,29 @@ int main(int argc, char* argv[]) {
     XSetErrorHandler(myErrorHandler);
     Window root = DefaultRootWindow(display);
     XSelectInput(display, root, PropertyChangeMask);
+    XSelectInput(display, panelWin, StructureNotifyMask);
 
     std::cout << "Ghost Panel Started for Panel ID: " << panelWin << "\n";
 
-    Window currentActiveWin = getActiveWindow(display, root);
-    if (currentActiveWin != None && isNormalWindow(display, currentActiveWin, panelWin)) {
-        XSelectInput(display, currentActiveWin, PropertyChangeMask);
+    Window lastNormalWin = getActiveWindow(display, root);
+    if (lastNormalWin != None && !isNormalWindow(display, lastNormalWin, panelWin)) {
+        lastNormalWin = None; 
+    } else if (lastNormalWin != None) {
+        XSelectInput(display, lastNormalWin, PropertyChangeMask);
     }
 
     bool panelVisible = true;
     int counter = 0;
     Window lastHoveredWin = None;
     bool isCurrentlyMenu = false;
-    bool currentIsNormal = false;
-    if (currentActiveWin != None) {
-        currentIsNormal = isNormalWindow(display, currentActiveWin, panelWin);
+    bool maxState = isMaximized(display, lastNormalWin);
+
+    if (maxState) {
+        XUnmapWindow(display, panelWin);
+        XFlush(display);
+        panelVisible = false;
+        counter = DEBOUNCE_LIMIT;
     }
-    bool maxState = (currentIsNormal && isMaximized(display, currentActiveWin));
 
     XEvent event;
     while (true) {
@@ -227,18 +205,30 @@ int main(int argc, char* argv[]) {
                (event.xproperty.atom != net_active_window && event.xproperty.atom != net_wm_state)) {
                 continue; 
             }
-            Window active = getActiveWindow(display, root);
-            if (active != currentActiveWin) {
-                currentActiveWin = active;
-                currentIsNormal = isNormalWindow(display, currentActiveWin, panelWin);
-                if (currentIsNormal) XSelectInput(display, currentActiveWin, PropertyChangeMask);
+            // Drain all events that are relevant to the active window or window change
+            while (XPending(display) > 0) {
+                XEvent nextEvent;
+                XPeekEvent(display, &nextEvent);
+                
+                if (nextEvent.type == PropertyNotify && 
+                   (nextEvent.xproperty.atom == net_active_window || nextEvent.xproperty.atom == net_wm_state)) {
+                    XNextEvent(display, &nextEvent);
+                } else {
+                    break;
+                }
             }
-            if (currentIsNormal && isMaximized(display, currentActiveWin)) {
+
+            Window active = getActiveWindow(display, root);
+            if (active != lastNormalWin && isNormalWindow(display, active, panelWin)) {
+                if (lastNormalWin != None) XSelectInput(display, lastNormalWin, NoEventMask);
+                lastNormalWin = active;
+                XSelectInput(display, lastNormalWin, PropertyChangeMask);
+            }
+            if (isMaximized(display, lastNormalWin)) {
                 maxState = true;
                 if (panelVisible) {
                     XUnmapWindow(display, panelWin);
                     XFlush(display);
-                    runXfconf("0", PANEL_PROP);
                     panelVisible = false;
                 }
                 counter = DEBOUNCE_LIMIT;
@@ -246,22 +236,24 @@ int main(int argc, char* argv[]) {
         } else {
             while (XPending(display) > 0) {
                 XNextEvent(display, &event);
+                if (event.type == MapNotify && event.xmap.window == panelWin && !panelVisible) {
+                    XUnmapWindow(display, panelWin);
+                    XFlush(display);
+                }
                 if (event.type == PropertyNotify && 
                    (event.xproperty.atom == net_active_window || event.xproperty.atom == net_wm_state)) {
                     Window active = getActiveWindow(display, root);
-                    if (active != currentActiveWin) {
-                        currentActiveWin = active;
-                        currentIsNormal = isNormalWindow(display, currentActiveWin, panelWin);
-
-                        if (currentIsNormal) XSelectInput(display, currentActiveWin, PropertyChangeMask);
+                    if (active != lastNormalWin && isNormalWindow(display, active, panelWin)) {
+                        if (lastNormalWin != None) XSelectInput(display, lastNormalWin, NoEventMask);
+                        lastNormalWin = active;
+                        XSelectInput(display, lastNormalWin, PropertyChangeMask);
                     }
                 }
             }
 
-            if (!currentIsNormal || !isMaximized(display, currentActiveWin)) {
+            if (!isMaximized(display, lastNormalWin)) {
                 maxState = false;
                 if (!panelVisible) {
-                    runXfconf("1", PANEL_PROP);
                     XMapWindow(display, panelWin);
                     XFlush(display);
                     panelVisible = true;

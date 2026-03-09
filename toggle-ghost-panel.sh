@@ -43,7 +43,6 @@ if pgrep -x "ghost-panel" > /dev/null; then
     if [ -n "$PANEL_ID" ]; then
         xdotool windowmap "$PANEL_ID" 2>/dev/null
     fi
-    xfconf-query -c xfce4-panel -p "$PANEL_PROP" -s 1 2>/dev/null
 
     # Optional: Send a desktop notification so you know it worked
     notify-send -t 2000 "Ghost Panel" "Disabled (Locked Open)"

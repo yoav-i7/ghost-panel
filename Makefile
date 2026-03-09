@@ -21,7 +21,7 @@ install: $(TARGET)
 	install -m 755 $(TARGET) $(INSTALL_DIR)/
 	install -m 755 start-ghost-panel.sh $(INSTALL_DIR)/
 	install -m 755 toggle-ghost-panel.sh $(INSTALL_DIR)/
-	cp config.cfg $(INSTALL_DIR)/
+	cp gpanel.cfg $(INSTALL_DIR)/
 	@echo "Successfully installed to $(INSTALL_DIR)/$(TARGET)"
 
 # Rule to clean up the compiled files
