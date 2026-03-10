@@ -10,15 +10,13 @@ else
     exit 1
 fi
 
-PANEL_PROP="/panels/panel-${PANEL_NUMBER}/autohide-behavior"
-
 # Dependency checks
 command -v xdotool >/dev/null 2>&1 || { echo >&2 "Error: xdotool is required but not installed. Aborting."; exit 1; }
 command -v xwininfo >/dev/null 2>&1 || { echo >&2 "Error: x11-utils (xwininfo) is required but not installed. Aborting."; exit 1; }
 
 # Grab the ID in case we need to unhide it
 get_panel_id() {
-    for id in $(xdotool search --class "xfce4-panel" 2>/dev/null); do
+    for id in $(xdotool search --all --class "xfce4-panel" 2>/dev/null); do
         local info=$(xwininfo -id "$id" 2>/dev/null)
         local width=$(echo "$info" | awk '/Width/ {print $2}')
         local height=$(echo "$info" | awk '/Height/ {print $2}')
@@ -36,7 +34,6 @@ get_panel_id() {
 if pgrep -x "ghost-panel" > /dev/null; then
     # 1. Kill the wrapper and the process
     pkill -f "start-ghost-panel.sh"
-    killall ghost-panel
 
     # 2. Force the panel back to its default visible state
     PANEL_ID=$(get_panel_id)

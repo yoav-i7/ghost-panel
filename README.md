@@ -2,13 +2,13 @@
 
 A lightweight C++ tool and bash wrapper to change XFCE's panel autohide behavior. 
 
-By default, an autohiding XFCE panel will simply overlap your maximized windows when it unhides. My program forces the panel to dynamically resize your maximized windows to make room for the panel when it appears, and expand them back when it hides.
+By default, an autohiding XFCE panel will simply overlap your maximized windows when it unhides. My program maps/unmaps the panel, forcing XFCE to dynamically resize your maximized windows to make room for the panel when it appears, and expand them back when it hides.
 
 ## ⚠️ Limitations
 * **Single Monitor Only:** This tool currently only supports single-monitor setups. Multi-monitor support requires complex X11 coordinate tracking that is not yet implemented.
 
 ## Features
-* **Low Resource Footprint:** Instead of heavy polling, the engine blocks on native X11 `XNextEvent` calls. It uses effectively 0% CPU when windows aren't maximized.
+* **Zero-Waste Performance:** Instead of relying on blind sleep loops, the engine uses POSIX `poll()` directly on the X11 socket file descriptor. It consumes 0.0% CPU when windows aren't maximized, waking only when an X event occurs.
 * **Menu Aware:** Checks X11 window properties so the panel doesn't annoyingly hide while you are using dropdown menus, tooltips, or right-click contexts.
 * **Crash Resilient:** The included bash wrapper automatically handles panel crashes or reloads, keeping the C++ engine attached to the correct panel ID.
 
@@ -30,7 +30,7 @@ sudo apt install g++ make libx11-dev xdotool x11-utils
    ```
 
 2. Configure the wrapper:
-   Open `config.cfg` in a text editor and edit the configuration variables to match your XFCE setup if necessary. By default, it targets Panel 1 with a height of 28 pixels.
+   Open `gpanel.cfg` in a text editor and edit the configuration variables to match your XFCE setup if necessary. By default, it targets Panel 1 with a height of 28 pixels.
 
 3. (Optional) Install the binary and scripts to ~/.local/bin:
    ```bash
