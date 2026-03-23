@@ -291,22 +291,22 @@ int main(int argc, char* argv[]) {
             Window root_ret, child_ret;
             int rx, ry, wx, wy;
             unsigned int mask;
-            
+
             if (XQueryPointer(display, root, &root_ret, &child_ret, &rx, &ry, &wx, &wy, &mask)) {
                 if (child_ret != lastHoveredWin) {
                     lastHoveredWin = child_ret;
                     isCurrentlyMenu = isMenuOrTooltip(display, child_ret, menuCache); 
                 }
 
-                if (ry <= 8) {
+                if (ry <= 4) {
                     if (!panelVisible) {
                         XMapWindow(display, panelWin);
                         panelVisible = true;
                     }
                     debounceCounter = 0;
                 } else if (panelVisible && isCurrentlyMenu) {
-                    debounceCounter = 0; 
-                } else if (ry > 8 && ry <= hoverThreshold) {
+                    debounceCounter = 0;
+                } else if (ry > 4 && ry <= hoverThreshold) {
                     // Buffer zone - do nothing
                 } else {
                     if (panelVisible) {

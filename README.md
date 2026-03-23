@@ -30,7 +30,7 @@ sudo apt install g++ make libx11-dev xdotool x11-utils
    ```
 
 2. Configure the wrapper:
-   Open `gpanel.cfg` in a text editor and edit the configuration variables to match your XFCE setup if necessary. By default, it targets Panel 1 with a height of 28 pixels.
+   Open `gpanel.cfg` in a text editor and edit the configuration variables to match your XFCE setup if necessary. By default, it targets Panel 1 with a height of 30 pixels.
 
 3. (Optional) Install the binary and scripts to ~/.local/bin:
    ```bash
