@@ -16,24 +16,17 @@ else
     exit 1
 fi
 
+# Load shared functions
+if [[ -f "$SCRIPT_DIR/gpanel-lib.sh" ]]; then
+    source "$SCRIPT_DIR/gpanel-lib.sh"
+else
+    echo "Error: gpanel-lib.sh not found in $SCRIPT_DIR"
+    exit 1
+fi
+
 # Dependency checks
 command -v xdotool >/dev/null 2>&1 || { echo >&2 "Error: xdotool is required but not installed. Aborting."; exit 1; }
 command -v xwininfo >/dev/null 2>&1 || { echo >&2 "Error: x11-utils (xwininfo) is required but not installed. Aborting."; exit 1; }
-
-get_panel_id() {
-    for id in $(xdotool search --class "xfce4-panel" 2>/dev/null); do
-        local info=$(xwininfo -id "$id" 2>/dev/null)
-        local width=$(echo "$info" | awk '/Width/ {print $2}')
-        local height=$(echo "$info" | awk '/Height/ {print $2}')
-
-        # A primary panel usually spans most of a monitor's edge.
-        # If it's wider than 500px (Top/Bottom) OR taller than 500px (Left/Right)
-        if [[ "$width" -gt 500 ]] || [[ "$height" -gt 500 ]]; then
-            echo "$id"
-            return
-        fi
-    done
-}
 
 cleanup() {
     echo "Stopping Ghost Panel wrapper..."

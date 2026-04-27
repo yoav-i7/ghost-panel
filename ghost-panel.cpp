@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <poll.h>
 
-const int DEBOUNCE_LIMIT = 14;
+const int DEBOUNCE_LIMIT = 14; // 420ms debounce
 
 Window panelWin = None;
 
@@ -154,13 +154,13 @@ bool isMenuOrTooltip(Display* display, Window win, std::unordered_map<Window, bo
 
 int main(int argc, char* argv[]) {
     if (argc < 3) {
-    std::cerr << "Usage: " << argv[0] << " <PANEL_WINDOW_ID> <PANEL_SIZE>\n";
+    std::cerr << "Usage: " << argv[0] << " <PANEL_WINDOW_ID> <PANEL_HEIGHT>\n";
         return 1;
     }
     int hoverThreshold = 0;
     try {
         panelWin = std::stoul(argv[1]); // Convert string ID to X11 Window type
-        hoverThreshold = std::stoi(argv[2]);
+        hoverThreshold = std::stoi(argv[2]) + 40; // Add a 40px buffer to prevent window buttons from "jumping away" when moving from the panel to them
     } catch (const std::exception& e) {
         std::cerr << "FATAL: Invalid arguments provided.\n";
         return 1;
@@ -184,7 +184,7 @@ int main(int argc, char* argv[]) {
     XSetErrorHandler(myErrorHandler);
     Window root = DefaultRootWindow(display);
 
-    XSelectInput(display, root, PropertyChangeMask);
+    XSelectInput(display, root, PropertyChangeMask | SubstructureNotifyMask);
     XSelectInput(display, panelWin, StructureNotifyMask);
 
     std::cout << "Ghost Panel Started for Panel ID: " << panelWin << "\n";
@@ -219,7 +219,7 @@ int main(int argc, char* argv[]) {
         // Must flush output buffer before polling
         XFlush(display);
 
-        // If not maximized, block indefinitely (-1). If maximized, wake up every 50ms to check mouse.
+        // If not maximized, block indefinitely (-1). If maximized, wake up every 30ms to check mouse.
         int timeout = maxState ? 30 : -1;
         poll(&pfd, 1, timeout);
 
@@ -230,6 +230,7 @@ int main(int argc, char* argv[]) {
 
             // Clean up tracking if the window is destroyed
             if (event.type == DestroyNotify) {
+                menuCache.erase(event.xdestroywindow.window);
                 if (event.xdestroywindow.window == lastNormalWin) lastNormalWin = None;
                 continue;
             }
@@ -298,7 +299,7 @@ int main(int argc, char* argv[]) {
                     isCurrentlyMenu = isMenuOrTooltip(display, child_ret, menuCache); 
                 }
 
-                if (ry <= 4) {
+                if (ry <= 2) { // 2px trigger zone at screen top
                     if (!panelVisible) {
                         XMapWindow(display, panelWin);
                         panelVisible = true;
@@ -306,7 +307,7 @@ int main(int argc, char* argv[]) {
                     debounceCounter = 0;
                 } else if (panelVisible && isCurrentlyMenu) {
                     debounceCounter = 0;
-                } else if (ry > 4 && ry <= hoverThreshold) {
+                } else if (ry > 2 && ry <= hoverThreshold) {
                     // Buffer zone - do nothing
                 } else {
                     if (panelVisible) {

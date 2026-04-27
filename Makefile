@@ -1,6 +1,6 @@
 # Compiler settings
 CXX = g++
-CXXFLAGS = -O2 -Wall -Wextra
+CXXFLAGS = -O2 -Wall -Wextra -std=c++17
 LDFLAGS = -lX11
 
 # Files and directories
@@ -21,7 +21,8 @@ install: $(TARGET)
 	install -m 755 $(TARGET) $(INSTALL_DIR)/
 	install -m 755 start-ghost-panel.sh $(INSTALL_DIR)/
 	install -m 755 toggle-ghost-panel.sh $(INSTALL_DIR)/
-	cp gpanel.cfg $(INSTALL_DIR)/
+	install -m 644 gpanel.cfg $(INSTALL_DIR)/
+	install -m 644 gpanel-lib.sh $(INSTALL_DIR)/
 	@echo "Successfully installed to $(INSTALL_DIR)/$(TARGET)"
 
 # Rule to clean up the compiled files
